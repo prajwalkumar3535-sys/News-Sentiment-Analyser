@@ -1,0 +1,44 @@
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment Variables & Secrets (CRITICAL: Never commit API keys)
+.env
+.env.local
+*.env
+
+# SQLite Database & Storage
+*.db
+*.sqlite
+*.sqlite3
+data/cache/
+data/raw/*.csv
+data/processed/*.csv
+
+# Machine Learning Artifacts & Weights
+models/saved/
+*.pkl
+*.joblib
+*.pt
+*.bin
+*.onnx
+
+# IDE & OS Files
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
