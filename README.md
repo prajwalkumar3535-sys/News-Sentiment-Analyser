@@ -136,8 +136,8 @@ An end-to-end, multi-platform **Social Media News Sentiment & Emotion Mining Ana
 
 ### 1. Clone Repository & Setup Virtual Environment
 ```bash
-git clone <your-repo-url>
-cd social_news_sentiment
+git clone https://github.com/prajwalkumar3535-sys/News-Sentiment-Analyser.git
+cd News-Sentiment-Analyser
 
 python -m venv venv
 # On Windows:
