@@ -137,23 +137,48 @@ CATEGORY_RSS_TOPICS = {
 }
 
 
+def _time_ago(published_parsed) -> str:
+    """Convert a feedparser time_struct to a human-readable 'X min/hr/day ago' string."""
+    try:
+        pub_dt = datetime(*published_parsed[:6], tzinfo=timezone.utc)
+        delta_mins = int((datetime.now(timezone.utc) - pub_dt).total_seconds() / 60)
+        if delta_mins < 1:
+            return "just now"
+        if delta_mins < 60:
+            return f"{delta_mins}m ago"
+        if delta_mins < 1440:
+            return f"{delta_mins // 60}h ago"
+        return f"{delta_mins // 1440}d ago"
+    except Exception:
+        return "recently"
+
+
 def get_trending_news(category: str = "all", limit: int = 9) -> List[Dict[str, Any]]:
     """
     Fetches real-time live categorized news headlines from Google News RSS.
-    Gracefully falls back to curated items if offline or rate-limited.
+    - Always attempts a live fetch first; never skips it.
+    - Timestamps are computed from the article's actual publish time.
+    - Returns [] (empty list) only on a hard network failure so the caller
+      can render a loading/error state instead of stale hardcoded data.
     """
     cat_lower = category.lower().strip()
     feed_url = CATEGORY_RSS_TOPICS.get(cat_lower, CATEGORY_RSS_TOPICS["all"])
-    
-    items: List[Dict[str, Any]] = []
+
     try:
         feed = feedparser.parse(feed_url)
+
+        # feedparser returns bozo=True on a bad parse but still gives partial data.
+        # Treat a completely empty entries list as a fetch failure.
+        if not feed.entries:
+            return []
+
+        items: List[Dict[str, Any]] = []
         for idx, entry in enumerate(feed.entries[:limit]):
-            title = entry.get("title", "")
+            title = entry.get("title", "").strip()
             if not title:
                 continue
-            
-            # Clean title and separate source if appended by Google News " - SourceName"
+
+            # Separate inline source that Google News appends: "Headline - Source"
             source_name = "Google News"
             if " - " in title:
                 parts = title.rsplit(" - ", 1)
@@ -161,49 +186,48 @@ def get_trending_news(category: str = "all", limit: int = 9) -> List[Dict[str, A
                 source_name = parts[1].strip()
             else:
                 clean_title = title
-            
-            # Clean summary
+
+            # Strip HTML from summary
             summary = entry.get("summary", "")
             if "<" in summary:
-                # Basic strip HTML tags
                 import re
                 summary = re.sub(r"<[^>]+>", "", summary).strip()
             if not summary or len(summary) < 20:
-                summary = f"Latest live public reporting and social reaction stream regarding {clean_title}."
-            
-            # Infer category tag
+                summary = (
+                    f"Latest reporting and social reaction stream regarding {clean_title}."
+                )
+
+            # Real publish timestamp → "X min/hr/day ago"
+            published_parsed = entry.get("published_parsed")
+            time_ago_str = _time_ago(published_parsed) if published_parsed else "recently"
+
+            # Infer category label from headline keywords
+            tu = clean_title.upper()
             card_cat = cat_lower.upper() if cat_lower != "all" else "GENERAL"
-            if "POLITICS" in clean_title.upper() or "ELECTION" in clean_title.upper() or "MINISTER" in clean_title.upper() or "GOVERNMENT" in clean_title.upper():
+            if any(k in tu for k in ("ELECTION", "MINISTER", "GOVERNMENT", "PARLIAMENT", "POLICY")):
                 card_cat = "POLITICS"
-            elif "CRICKET" in clean_title.upper() or "MATCH" in clean_title.upper() or "CHAMPIONS" in clean_title.upper() or "CUP" in clean_title.upper():
+            elif any(k in tu for k in ("CRICKET", "MATCH", "CHAMPIONS", "CUP", "FOOTBALL", "TENNIS", "SPORT")):
                 card_cat = "SPORTS"
-            elif "AI" in clean_title.upper() or "TECH" in clean_title.upper() or "APPLE" in clean_title.upper() or "GOOGLE" in clean_title.upper():
+            elif any(k in tu for k in ("AI", "TECH", "APPLE", "GOOGLE", "META", "SOFTWARE", "CHIP")):
                 card_cat = "TECHNOLOGY"
-            elif "MARKET" in clean_title.upper() or "STOCK" in clean_title.upper() or "GST" in clean_title.upper() or "ECONOMY" in clean_title.upper():
+            elif any(k in tu for k in ("MARKET", "STOCK", "GST", "ECONOMY", "GDP", "RBI", "FINANCE")):
                 card_cat = "BUSINESS"
-            elif "MOVIE" in clean_title.upper() or "TOUR" in clean_title.upper() or "FILM" in clean_title.upper() or "ACTOR" in clean_title.upper():
+            elif any(k in tu for k in ("MOVIE", "FILM", "ACTOR", "TOUR", "ALBUM", "SERIES", "CELEBRITY")):
                 card_cat = "ENTERTAINMENT"
 
             items.append({
                 "id": f"live_{idx}",
                 "category": card_cat,
                 "title": clean_title,
-                "summary": (summary[:220] + "...") if len(summary) > 220 else summary,
+                "summary": (summary[:220] + "…") if len(summary) > 220 else summary,
                 "source": source_name,
-                "time_ago": f"{idx * 2 + 1}h ago",
+                "time_ago": time_ago_str,   # ← real publish-time delta
                 "query": clean_title,
-                "pos": 45, "neu": 35, "neg": 20
+                "pos": 45, "neu": 35, "neg": 20,
             })
-    except Exception as e:
-        print(f"[NewsFeed] RSS fetch warning: {e}")
 
-    # If live items were retrieved, return them; otherwise filter fallback
-    if items and len(items) >= 3:
         return items[:limit]
 
-    # Return filtered fallback
-    if cat_lower == "all":
-        return FALLBACK_NEWS[:limit]
-    
-    filtered = [n for n in FALLBACK_NEWS if n["category"].lower() == cat_lower]
-    return filtered if filtered else FALLBACK_NEWS[:limit]
+    except Exception as exc:
+        print(f"[NewsFeed] RSS fetch error: {exc}")
+        return []   # Signal failure; caller shows loading/error state

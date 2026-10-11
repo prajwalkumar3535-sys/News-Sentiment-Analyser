@@ -383,45 +383,74 @@ else:
 
     st.write("")
 
-    # 4. Fetch Categorized News Cards
-    news_items = get_trending_news(category=st.session_state.active_category, limit=9)
+    # 4. Fetch Categorized News Cards — always live, with loading + error states
+    with st.spinner("Fetching live headlines…"):
+        news_items = get_trending_news(category=st.session_state.active_category, limit=9)
 
-    # Render Cards in 3 Columns Grid
-    cols = st.columns(3)
-    for idx, item in enumerate(news_items):
-        col_idx = idx % 3
-        with cols[col_idx]:
-            # Calculate sentiment bar proportions
-            p_pos = item.get("pos", 45)
-            p_neu = item.get("neu", 35)
-            p_neg = item.get("neg", 20)
-            
-            # HTML Card structure matching the reference design
-            card_html = f"""
-            <div class="news-card">
-                <div>
-                    <div class="news-card-cat">{item['category']}</div>
-                    <div class="news-card-headline">{item['title']}</div>
-                    <div class="news-card-summary">{item['summary']}</div>
+    if not news_items:
+        st.markdown(
+            """
+            <div style="
+                margin: 2rem auto;
+                padding: 2rem;
+                border: 1px solid #292524;
+                border-radius: 8px;
+                background: #1c1917;
+                text-align: center;
+                max-width: 520px;
+            ">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📡</div>
+                <div style="font-family: JetBrains Mono; font-size: 0.95rem; color: #f4f4f5; margin-bottom: 0.4rem;">
+                    Live feed unavailable
                 </div>
-                <div>
-                    <div class="sentiment-track">
-                        <div class="seg-pos" style="width: {p_pos}%;"></div>
-                        <div class="seg-neu" style="width: {p_neu}%;"></div>
-                        <div class="seg-neg" style="width: {p_neg}%;"></div>
-                    </div>
-                    <div class="news-card-footer">
-                        <span>{item['source']}</span>
-                        <span>{item['time_ago']}</span>
-                    </div>
+                <div style="font-size: 0.8rem; color: #71717a;">
+                    Could not reach Google News RSS right now.<br>
+                    Check your internet connection and try again.
                 </div>
             </div>
-            """
-            st.markdown(card_html, unsafe_allow_html=True)
-            
-            # Clickable trigger button for each topic
-            if st.button(f"Analyze Reaction →", key=f"analyze_btn_{item['id']}", use_container_width=True):
-                st.session_state.target_query_to_run = item['query']
-                st.rerun()
-            
-            st.markdown("<div style='margin-bottom: 1.2rem;'></div>", unsafe_allow_html=True)
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button("↻  Retry", use_container_width=False):
+            st.rerun()
+    else:
+        # Render Cards in 3 Columns Grid
+        cols = st.columns(3)
+        for idx, item in enumerate(news_items):
+            col_idx = idx % 3
+            with cols[col_idx]:
+                # Calculate sentiment bar proportions
+                p_pos = item.get("pos", 45)
+                p_neu = item.get("neu", 35)
+                p_neg = item.get("neg", 20)
+
+                # HTML Card structure matching the reference design
+                card_html = f"""
+                <div class="news-card">
+                    <div>
+                        <div class="news-card-cat">{item['category']}</div>
+                        <div class="news-card-headline">{item['title']}</div>
+                        <div class="news-card-summary">{item['summary']}</div>
+                    </div>
+                    <div>
+                        <div class="sentiment-track">
+                            <div class="seg-pos" style="width: {p_pos}%;"></div>
+                            <div class="seg-neu" style="width: {p_neu}%;"></div>
+                            <div class="seg-neg" style="width: {p_neg}%;"></div>
+                        </div>
+                        <div class="news-card-footer">
+                            <span>{item['source']}</span>
+                            <span>{item['time_ago']}</span>
+                        </div>
+                    </div>
+                </div>
+                """
+                st.markdown(card_html, unsafe_allow_html=True)
+
+                # Clickable trigger button for each topic
+                if st.button(f"Analyze Reaction →", key=f"analyze_btn_{item['id']}", use_container_width=True):
+                    st.session_state.target_query_to_run = item['query']
+                    st.rerun()
+
+                st.markdown("<div style='margin-bottom: 1.2rem;'></div>", unsafe_allow_html=True)
+
