@@ -168,29 +168,100 @@ streamlit run app.py
 
 ---
 
-## 🔑 How to Get & Configure API Keys (Optional)
+## 🔑 API Keys — What They Unlock & How to Configure
 
-The application includes an **automated simulated demo mode**, so it functions right away even without API keys. To connect live platforms:
+### How the App Gathers Data (No Keys Needed Out-of-the-Box)
 
-### 1. YouTube Data API v3
+When you clone this repo and run it **without any API keys**, the app still works using two fully public, zero-auth data sources:
+
+| Source | How it works | Needs a key? |
+| :--- | :--- | :---: |
+| **Google News RSS** | Fetches headlines & article snippets from `news.google.com/rss` — a completely public feed. No account, no quota. | ❌ Never |
+| **Reddit Public JSON** | Reddit's public pages are accessible by appending `.json` to any URL. The app queries `reddit.com/r/.../search.json` directly, no OAuth needed. | ❌ Never |
+| **Simulated Fallback** | If both sources above fail (no internet, rate-limited, etc.), a built-in mock stream generates realistic demo data so the UI never breaks. | ❌ Never |
+
+> **YouTube is fully skipped** when no key is provided — it does not fall back to scraping.
+
+---
+
+### What API Keys Unlock (Optional Upgrades)
+
+| Key | Platform | What it adds |
+| :--- | :--- | :--- |
+| `YOUTUBE_API_KEY` | YouTube Data API v3 | Real comments from YouTube videos related to your search query. Without this key, YouTube is entirely skipped. |
+| `REDDIT_CLIENT_ID` + `REDDIT_CLIENT_SECRET` | Reddit via PRAW | Full Reddit API access — deeper comment threads, higher rate limits, and more reliable results vs. the public JSON mode. |
+
+---
+
+### Where to Put the Keys in This Project
+
+**Step 1 — Create your `.env` file**
+
+The repo ships with a template called `.env.example` at the project root. Copy it and rename it to `.env`:
+
+```bash
+# From the project root (News-Sentiment-Analyser/)
+cp .env.example .env        # Linux / macOS
+copy .env.example .env      # Windows
+```
+
+Your project structure should now look like this:
+
+```
+News-Sentiment-Analyser/
+├── .env                  ← ✅ Your private keys go here (never committed to Git)
+├── .env.example          ← 📄 Template (safe to commit)
+├── config.py             ← Reads keys from .env automatically on startup
+├── app.py
+└── ...
+```
+
+**Step 2 — Fill in your keys inside `.env`**
+
+Open `.env` and add your credentials:
+
+```env
+# ── YouTube (optional) ──────────────────────────────────────
+YOUTUBE_API_KEY=AIza...your_key_here
+
+# ── Reddit (optional) ────────────────────────────────────────
+REDDIT_CLIENT_ID=your_client_id
+REDDIT_CLIENT_SECRET=your_client_secret
+REDDIT_USER_AGENT=NewsSentimentAnalyzer/1.0 by YourUsername
+
+# ── App Settings (defaults are fine, change if needed) ───────
+APP_ENV=development
+DATABASE_URL=sqlite:///./sentiment_analyzer.db
+DEFAULT_COMMENT_LIMIT=100
+```
+
+**Step 3 — Run the app** — `config.py` automatically loads `.env` on startup via `python-dotenv`. No code changes needed.
+
+```bash
+streamlit run app.py
+```
+
+---
+
+### How to Get Each Key
+
+#### 🎬 YouTube Data API v3
 1. Go to [Google Cloud Console](https://console.cloud.google.com/).
-2. Create a project and search for **YouTube Data API v3** $\rightarrow$ Click **Enable**.
-3. Go to **Credentials** $\rightarrow$ **Create Credentials** $\rightarrow$ **API Key**.
-4. Paste the key in your `.env` file under `YOUTUBE_API_KEY`.
+2. Create a project → search for **YouTube Data API v3** → click **Enable**.
+3. Go to **Credentials** → **Create Credentials** → **API Key**.
+4. Copy the generated key and paste it as `YOUTUBE_API_KEY` in your `.env`.
 
-### 2. Reddit API (PRAW)
+#### 🟠 Reddit API (PRAW)
 1. Go to [Reddit App Preferences](https://www.reddit.com/prefs/apps).
 2. Click **create another app...** / **create app**.
 3. Fill in:
    - **Name:** `news_sentiment_analyzer`
-   - **Type:** Select `script`
+   - **Type:** Select **`script`**
    - **Redirect URI:** `http://localhost:8080`
-4. Copy the **Client ID** (under the app name) and **Client Secret**.
-5. Paste them in your `.env` file:
-   ```env
-   REDDIT_CLIENT_ID=your_client_id
-   REDDIT_CLIENT_SECRET=your_client_secret
-   ```
+4. After creating, copy:
+   - **Client ID** — the short string shown *directly under* your app name
+   - **Client Secret** — the longer string next to "secret"
+5. Paste both into your `.env` as shown in Step 2 above.
 
 ---
 
